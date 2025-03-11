@@ -1,10 +1,11 @@
 #pragma once
-
 #include <vector>
 #include <string>
 #include <optional>
 #include <iostream>
+#include "genAsm.hpp"
 using namespace std;
+
 
 // starting with the tokenizing:
 enum class TokenType 
@@ -12,7 +13,6 @@ enum class TokenType
 // avoiding type and literal errors during reading the file
     _return,
     int_lit,
-    identifier,
     semi_col
 }; // this class will provide type-safety and scoped naming convention
 // very useful indeed
@@ -29,12 +29,12 @@ class Tokenize
 {
     private:
         const string m_src;
-        int m_index;
-        [[nodiscard]] optional<char> peek(const int ahead = 1) const
+        size_t m_index = 0;
+        [[nodiscard]] optional<char> peek(int ahead = 1) const
         {
             // this is a const func because nothing is being processed on, 
             // we just check some stuff and return the values as they are
-            if (m_index + ahead >= m_src.length())
+            if (m_index + ahead > m_src.length())
             {
                 return {};
             }
@@ -52,6 +52,7 @@ class Tokenize
         } 
 
     public:
+        Tokenize () {}
         Tokenize (const string& src): m_src(src) {} 
 
         vector<Token> Tokenizer();
@@ -65,7 +66,6 @@ class Tokenize
                 case TokenType::_return : return "return";
                 case TokenType::semi_col : return ";";
                 case TokenType::int_lit : return "int_lit";
-                case TokenType::identifier : return "identifier";
                 default : return "unknown";
             }
         }
@@ -82,70 +82,50 @@ vector<Token> Tokenize::Tokenizer()
         if (isalpha(peek().value()))
         {
             // takes in only alnum starting with alpha
-            buf += consume(); 
+            buf.push_back(consume()); 
             while (peek().has_value() && isalnum(peek().value()))
             {
-                buf += consume();
+                buf.push_back(consume());
+            }
+            if (buf == "send")
+            {
+                token_buf.push_back({.type=TokenType::_return, .value=buf});
+                buf.clear();
+            }
+            else
+            {
+                cerr << "token not identifiable.\n";
+                exit(EXIT_FAILURE);
             }
         }
         else if(isdigit(peek().value()))
         {
             // takes only digits
-            buf += consume();
-            if (peek().has_value() && isalpha(peek().value()))
+            buf.push_back(consume());
+            while (peek().has_value() && isdigit(peek().value()))
             {
-                cerr << "Invalid token: alphabet cannot be preceeded by digits\n";
-                break;
+                buf.push_back(consume());
             }
-        }
-        else if(!buf.empty())
-        {
-            // Handle the previous token before processing the current character
-            if (buf == "getout") 
-            {
-                token_buf.push_back({TokenType::_return});
-            }
-            else if (isdigit(buf.at(0)))
-            {  
-                // Numeric literals
-                token_buf.push_back({TokenType::int_lit, buf});
-            }
-            else 
-            {
-                // Identifiers
-                token_buf.push_back({TokenType::identifier, buf});
-            }
+            token_buf.push_back({.type=TokenType::int_lit, .value=buf});
             buf.clear();
-            buf += consume();
         }
-        else if (buf == ";")
+        else if (peek().has_value() && peek().value() == ';')
         {
-            token_buf.push_back({TokenType::semi_col});
             consume();
+            token_buf.push_back({.type=TokenType::semi_col, .value=";"});
+            buf.clear();
+        }
+        else if (isspace(peek().value()))
+        {
+            consume();
+            continue;
         }
         else
         {
-            cerr << "Unkown token type, types allowed are return, int_lit, semi_col and identifiers\n";
+            cerr << "token not identifiable.\n";
+            exit(EXIT_FAILURE);
         }
     }
-
-    // If there's any leftover token after processing the whole string, add it
-    if (!buf.empty()) 
-    {
-        if (buf == "getout") 
-        {
-            token_buf.push_back({TokenType::_return});
-        }
-        else if (std::isdigit(buf.at(0)))
-        {
-            token_buf.push_back({TokenType::int_lit, buf});
-        }
-        else
-        {
-            token_buf.push_back({TokenType::identifier, buf});
-        }
-    }
-
     m_index = 0;
     return token_buf;  
 }

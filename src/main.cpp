@@ -4,7 +4,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
-#include "lexer.hpp"
+#include "genAsm.hpp"
 
 using namespace std;
 
@@ -16,27 +16,6 @@ string optionalTostring(const optional<string>& value)
     return value.has_value() ? value.value() : "none"; 
 }
 
-string tokensToAsm(const vector<Token>& tokens)
-{
-    stringstream output;
-    output << "global _start\n";
-
-    for(int i = 0; i < tokens.size(); i++)
-    { // check for the required conditions (for now)
-        const Token& token = tokens.at(i);
-        if(token.type == TokenType::_return)
-        {
-            if(tokens.at(i+1).type == TokenType::int_lit && tokens.at(i+2).type == TokenType::semi_col)
-            {   // write the asm required for this:
-                output << "_start:\n";
-                output << "   mov rax, 60\n";
-                output << "   mov rdi, " << tokens.at(i+1).value.value() << "\n";
-                output << "   syscall\n";
-            }
-        }
-    }
-    return output.str(); // return the asm value in a string format
-}
 
 int main(int argc, char* argv[]) 
 {
@@ -69,32 +48,40 @@ int main(int argc, char* argv[])
     // run the tokenizer:
     vector<Token> result = machine.Tokenizer();
 
-    for (int i = 0; i < result.size(); i++)
-    {
-        cout << "type: " << machine.tokenTypeToString(result[i].type) 
-             << "\t" << "value: " << optionalTostring(result[i].value) << "\n";
-    }
+    // for (int i = 0; i < result.size(); i++)
+    // {
+    //     cout << "type: " << machine.tokenTypeToString(result[i].type) 
+    //          << "\t" << "value: " << optionalTostring(result[i].value) << "\n";
+    // }
 
-    // // creating the asm file content thru this code:
-    // string asmFile = tokensToAsm(result);
-    // ofstream assembly("test.asm");
-    // if(assembly.is_open())
-    // {
-    //     // write the contents into the file:
-    //     assembly << asmFile;
-    //     assembly.close();
-    //     cout << "File written successfully. can be linked for executable\n";
-    // }
-    // else
-    // {
-    //     // return an error:
-    //     cout << "The file could not be opened, please try again.\n";
-    // }
+    // creating the asm file content thru this code:
+    Parser parse(result);
+    std::optional<NodeExit> tree = parse.parser();
+    if(!tree.has_value()) 
+    {
+        cerr << "The expression could not be parsed.\n";
+        return(EXIT_FAILURE);
+    } 
+    Generator make(tree.value());
+    string asmFile = make.generate();
+    ofstream assembly("test.asm");
+    if(assembly.is_open())
+    {
+        // write the contents into the file:
+        assembly << asmFile;
+        assembly.close();
+        cout << "File written successfully. executable generated\n";
+    }
+    else
+    {
+        // return an error:
+        cout << "The file could not be opened, please try again.\n";
+    }
 
     file.close();
 
-    // system("nasm -felf64 -o test.o test.asm");
-    // system("ld -o test test.o");
+    system("nasm -felf64 -o test.o test.asm");
+    system("ld -o test test.o");
 
     return 0;
 }
