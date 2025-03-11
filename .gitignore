@@ -1,0 +1,17 @@
+# Ignore build files
+/build/
+*.o
+*.asm
+*.out
+*.exe
+
+# Ignore CMake temporary files
+CMakeCache.txt
+CMakeFiles/
+
+# Ignore logs and system files
+*.log
+.DS_Store
+Thumbs.db
+
+.vscode/
