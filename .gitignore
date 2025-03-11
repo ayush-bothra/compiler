@@ -3,6 +3,8 @@
 *.o
 *.asm
 *.out
+*.cm
+*.obj
 *.exe
 
 # Ignore CMake temporary files
