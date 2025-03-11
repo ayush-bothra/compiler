@@ -17,3 +17,6 @@ CMakeFiles/
 Thumbs.db
 
 .vscode/
+
+# the git token, will be changed whenever required 
+git_token
