@@ -20,3 +20,5 @@ Thumbs.db
 
 # the git token, will be changed whenever required 
 git_token
+test
+*.json
