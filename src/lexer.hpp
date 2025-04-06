@@ -13,7 +13,12 @@ enum class TokenType
 // avoiding type and literal errors during reading the file
     _return,
     int_lit,
-    semi_col
+    semi_col,
+    o_parens,
+    cl_parens,
+    ident,
+    set,
+    asign
 }; // this class will provide type-safety and scoped naming convention
 // very useful indeed
 
@@ -30,17 +35,17 @@ class Tokenize
     private:
         const string m_src;
         size_t m_index = 0;
-        [[nodiscard]] optional<char> peek(int ahead = 1) const
+        [[nodiscard]] optional<char> peek(int ahead = 0) const
         {
             // this is a const func because nothing is being processed on, 
             // we just check some stuff and return the values as they are
-            if (m_index + ahead > m_src.length())
+            if (m_index + ahead >= m_src.length())
             {
                 return {};
             }
             else
             {
-                return m_src.at(m_index);
+                return m_src.at(m_index + ahead);
             }
         }
 
@@ -66,6 +71,7 @@ class Tokenize
                 case TokenType::_return : return "return";
                 case TokenType::semi_col : return ";";
                 case TokenType::int_lit : return "int_lit";
+                case TokenType::ident : return "ident";
                 default : return "unknown";
             }
         }
@@ -92,10 +98,15 @@ vector<Token> Tokenize::Tokenizer()
                 token_buf.push_back({.type=TokenType::_return, .value=buf});
                 buf.clear();
             }
+            else if(buf == "set")
+            {
+                token_buf.push_back({.type=TokenType::set});
+                buf.clear();
+            }
             else
             {
-                cerr << "token not identifiable.\n";
-                exit(EXIT_FAILURE);
+                token_buf.push_back({.type=TokenType::ident, .value=buf});
+                buf.clear();
             }
         }
         else if(isdigit(peek().value()))
@@ -113,7 +124,21 @@ vector<Token> Tokenize::Tokenizer()
         {
             consume();
             token_buf.push_back({.type=TokenType::semi_col, .value=";"});
-            buf.clear();
+        }
+        else if(peek().has_value() && peek().value() == '=')
+        {
+            consume();
+            token_buf.push_back({.type=TokenType::asign});
+        }
+        else if (peek().has_value() && peek().value() == '(')
+        {
+            consume();
+            token_buf.push_back({.type=TokenType::o_parens, .value="("});
+        }
+        else if (peek().has_value() && peek().value() == ')')
+        {
+            consume();
+            token_buf.push_back({.type=TokenType::cl_parens, .value=")"});
         }
         else if (isspace(peek().value()))
         {

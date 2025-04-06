@@ -56,13 +56,13 @@ int main(int argc, char* argv[])
 
     // creating the asm file content thru this code:
     Parser parse(result);
-    std::optional<NodeExit> tree = parse.parser();
+    std::optional<NodeStmt> tree = parse.parse_stmt();
     if(!tree.has_value()) 
     {
         cerr << "The expression could not be parsed.\n";
         return(EXIT_FAILURE);
     } 
-    Generator make(tree.value());
+    Generator make(std::get<NodeStmtExit>(tree.value().s_var));
     string asmFile = make.generate();
     ofstream assembly("test.asm");
     if(assembly.is_open())
