@@ -9,7 +9,6 @@
 using namespace std;
 
 
-
 string optionalTostring(const optional<string>& value)
 {
     // this checks if the optional region is empty or not
@@ -48,21 +47,15 @@ int main(int argc, char* argv[])
     // run the tokenizer:
     vector<Token> result = machine.Tokenizer();
 
-    // for (int i = 0; i < result.size(); i++)
-    // {
-    //     cout << "type: " << machine.tokenTypeToString(result[i].type) 
-    //          << "\t" << "value: " << optionalTostring(result[i].value) << "\n";
-    // }
-
     // creating the asm file content thru this code:
     Parser parse(result);
-    std::optional<NodeStmt> tree = parse.parse_stmt();
+    std::optional<NodePgm> tree = parse.parse_pgm();
     if(!tree.has_value()) 
     {
         cerr << "The expression could not be parsed.\n";
         return(EXIT_FAILURE);
     } 
-    Generator make(std::get<NodeStmtExit>(tree.value().s_var));
+    Generator make(tree.value());
     string asmFile = make.generate();
     ofstream assembly("test.asm");
     if(assembly.is_open())

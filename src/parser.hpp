@@ -4,8 +4,6 @@
 #include <variant>
 #include <string>
 #include "lexer.hpp"
-
-
 /*A comment for future me:
     change the consume function and add args:
     1. expected token
@@ -13,11 +11,18 @@
     this will clean up the code by alot*/
 
 struct NodeExprIntLit {
+    // the variable that will store the actual value
     std::optional<Token> int_lit;
 };
 
 struct NodeExprIdent {
     std::optional<Token> ident;
+};
+
+struct NodeExpr
+{
+    std::variant<NodeExprIntLit, NodeExprIdent> var;
+    std::optional<Token> o_parens;
 };
 
 struct NodeStmtExit {
@@ -39,26 +44,17 @@ struct NodePgm {
     std::vector<NodeStmt> stmts;
 };
 
-struct NodeExpr
-{
-    std::variant<NodeExprIntLit, NodeExprIdent> var;
-    std::optional<Token> o_parens;
-};
-
-struct NodeExit
-{
-    NodeExpr expr;
-};
-
 class Parser
 {
 public:
     explicit Parser(std::vector<Token> tokens):
         m_tokens(std::move(tokens)) {}
 
-    std::optional<NodeExit> parser();
+    // std::optional<NodeExit> parser();
     std::optional<NodeStmt> parse_stmt();
     std::optional<NodePgm> parse_pgm();
+
+
     std::optional<NodeExpr> parse_expr() 
     {
         if(peek().has_value() && peek().value().type == TokenType::int_lit)
@@ -66,6 +62,11 @@ public:
             // this way the token .int_lit will be able to store the stuff
             // else just say the int_lit is also an optional and call it a day
             // depends on working of the code really, even idk
+
+            // the way this return works is that first we know that nodeexpr can have
+            // either a variant or an optional, so we first specify that (if u write var it becomes a variant else its an optional)
+            // then we need to assign the var with an int_lit to show that var is an int lit, this way it will get correctly stored in the
+            // struct NodeExpr 
             return NodeExpr{.var = NodeExprIntLit {.int_lit = consume()} };
         }
         else if(peek().has_value() && peek().value().type == TokenType::ident)
@@ -105,63 +106,8 @@ private:
         } 
 };
 
-std::optional<NodeExit> Parser::parser()
-{
-    std::optional<NodeExit> exit_node;
-    while(peek().has_value())
-    {
-        if(peek().value().type == TokenType::_return && 
-        peek(1).has_value() && 
-        peek(1).value().type == TokenType::o_parens)
-        {
-            consume();
-            consume();
-            // node_expr will store whatever parse_expr will give it
-            // if it is a null expr, node_expr will hold null
-            if (auto node_expr = Parser::parse_expr())
-            {
-                exit_node = NodeExit{.expr = node_expr.value()};
-            }
-            else
-            {
-                std::cerr << "Expect args, please rewrite the code.\n";
-                exit(EXIT_FAILURE); 
-            }
-
-            if (peek().has_value() && peek().value().type == TokenType::cl_parens)
-            {
-                consume();
-            }
-            else
-            {
-                std::cerr << "Expect ')' after the token, please rewrite the code\n";
-                exit(EXIT_FAILURE);
-            }
-
-            if(!peek().has_value() || peek().value().type != TokenType::semi_col)
-            {
-                std::cerr << "Expect ';', please rewrite the code.\n";
-                exit(EXIT_FAILURE);
-            }
-            else
-            {
-                consume();
-            }
-        }
-        else
-        {
-            std::cerr << "Syntax error: either 'send' or '(' or both are missing, please rewrite the code\n";
-            break;
-        }
-    }
-    m_index = 0;
-    return exit_node;
-};
-
 std::optional<NodeStmt> Parser::parse_stmt()
 {
-    // while(peek().has_value())
-    // {
     if(peek().has_value())
     {
         if(peek().value().type == TokenType::_return && 
@@ -170,12 +116,14 @@ std::optional<NodeStmt> Parser::parse_stmt()
         {
             consume();
             consume();
+            // consumed exit(
             NodeStmtExit stmt_exit;
             // node_expr will store whatever parse_expr will give it
             // if it is a null expr, node_expr will hold null
             if (auto node_expr = Parser::parse_expr())
             {
-                stmt_exit = {.expr = node_expr.value()};
+                // if there is a statement inside the exit()
+                stmt_exit = {.expr = node_expr.value() };
             }
             else
             {
@@ -195,6 +143,7 @@ std::optional<NodeStmt> Parser::parse_stmt()
 
             if(!peek().has_value() || peek().value().type != TokenType::semi_col)
             {
+                // after consuming ), a ; shld be there
                 std::cerr << "Expect ';'.\n";
                 exit(EXIT_FAILURE);
             }
@@ -208,13 +157,14 @@ std::optional<NodeStmt> Parser::parse_stmt()
         {
             NodeStmtLet stmt;
             consume();
+            // consumed set ; we are checking the value after set
             if(!(peek().has_value() && peek().value().type == TokenType::ident))
             {
                 std::cerr<<"expect identifier after keyword 'set'\n";
                 m_index = 0;
                 return std::nullopt;
             }
-            stmt.ident = consume();
+            stmt.ident = consume(); // storing the identifier for further use
             if(!(peek().has_value() && peek().value().type == TokenType::asign))
             {
                 std::cerr<<"expect assignment operator after identifier\n";
@@ -228,12 +178,12 @@ std::optional<NodeStmt> Parser::parse_stmt()
                 m_index = 0;
                 return std::nullopt;
             }
+            stmt.expr.var = NodeExprIntLit{consume().value()};
             if(!peek().has_value() || peek().value().type != TokenType::semi_col)
             {
                 std::cerr << "Expect ';'.\n";
                 exit(EXIT_FAILURE);
             }
-            stmt.expr.var = NodeExprIntLit{consume().value()};
             return NodeStmt{.s_var = stmt};
         }
         else
@@ -242,7 +192,8 @@ std::optional<NodeStmt> Parser::parse_stmt()
             m_index = 0;
             return std::nullopt;
         }
-    }     
+    }  
+    return std::nullopt;   
 }
 
 std::optional<NodePgm> Parser::parse_pgm()
@@ -250,6 +201,8 @@ std::optional<NodePgm> Parser::parse_pgm()
     NodePgm pgmstmts;
     while(peek().has_value())
     {
+        // below code will return a true value only if the parse
+        // happens correctly, else goes into the cerr section
         if(auto stmt = parse_stmt())
         {
             pgmstmts.stmts.push_back(stmt.value());
