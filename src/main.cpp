@@ -46,7 +46,6 @@ int main(int argc, char* argv[])
     Tokenize machine(contents);
     // run the tokenizer:
     vector<Token> result = machine.Tokenizer();
-
     // creating the asm file content thru this code:
     Parser parse(result);
     std::optional<NodePgm> tree = parse.parse_pgm();

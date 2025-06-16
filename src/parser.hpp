@@ -10,6 +10,10 @@
     2. error if token not present
     this will clean up the code by alot*/
 
+// current syntax style:
+// exit(ident/value)
+// set ident = value
+
 struct NodeExprIntLit {
     // the variable that will store the actual value
     std::optional<Token> int_lit;
@@ -77,6 +81,7 @@ public:
         {
             return {};
         }
+        return std::nullopt;
     }
 
 private:
@@ -96,6 +101,7 @@ private:
         {
             return m_tokens.at(m_index + ahead);
         }
+        return std::nullopt;
     }
 
     std::optional<Token> consume() 
@@ -104,12 +110,27 @@ private:
             // hence, it is not a const
             return m_tokens.at(m_index++);
         } 
+    string tokenTypeToString(TokenType type)
+        {
+            // this is used to print the enums, since they are strongly typed.
+            switch(type)
+            {
+                case TokenType::_return : return "return";
+                case TokenType::set : return "set ident";
+                case TokenType::asign : return "assign operator";
+                case TokenType::semi_col : return "semi_col";
+                case TokenType::int_lit : return "int_lit";
+                case TokenType::ident : return "ident";
+                default : return "space";
+            }
+        }
 };
 
 std::optional<NodeStmt> Parser::parse_stmt()
 {
     if(peek().has_value())
     {
+        std::cout << tokenTypeToString(peek().value().type) << "\n";
         if(peek().value().type == TokenType::_return && 
         peek(1).has_value() && 
         peek(1).value().type == TokenType::o_parens)
@@ -172,6 +193,10 @@ std::optional<NodeStmt> Parser::parse_stmt()
                 return std::nullopt;
             }
             consume();
+            if(peek().has_value() && peek().value().type == TokenType::ident)
+            {
+                    //   need to do this
+            }
             if(!(peek().has_value() && peek().value().type == TokenType::int_lit))
             {
                 std::cerr<<"expect identifier to hold some value\n";
@@ -184,6 +209,7 @@ std::optional<NodeStmt> Parser::parse_stmt()
                 std::cerr << "Expect ';'.\n";
                 exit(EXIT_FAILURE);
             }
+            consume();
             return NodeStmt{.s_var = stmt};
         }
         else

@@ -69,10 +69,12 @@ class Tokenize
             switch(type)
             {
                 case TokenType::_return : return "return";
-                case TokenType::semi_col : return ";";
+                case TokenType::set : return "set ident";
+                case TokenType::asign : return "assign operator";
+                case TokenType::semi_col : return "semi_col";
                 case TokenType::int_lit : return "int_lit";
                 case TokenType::ident : return "ident";
-                default : return "unknown";
+                default : return "space";
             }
         }
 };
@@ -100,7 +102,7 @@ vector<Token> Tokenize::Tokenizer()
             }
             else if(buf == "set")
             {
-                token_buf.push_back({.type=TokenType::set});
+                token_buf.push_back({.type=TokenType::set, .value=""});
                 buf.clear();
             }
             else
@@ -128,7 +130,7 @@ vector<Token> Tokenize::Tokenizer()
         else if(peek().has_value() && peek().value() == '=')
         {
             consume();
-            token_buf.push_back({.type=TokenType::asign});
+            token_buf.push_back({.type=TokenType::asign, .value=""});
         }
         else if (peek().has_value() && peek().value() == '(')
         {

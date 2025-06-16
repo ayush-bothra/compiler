@@ -1,6 +1,6 @@
 #pragma once
 #include "parser.hpp"
-
+#include <unordered_map>
 /*
 note:
 
@@ -80,8 +80,28 @@ the entire class into a single struct, will implement this later
 class Generator
 {
 private:
+    struct Variable
+    {
+        size_t stack_loc;
+    };
     const NodePgm m_root;
     std::stringstream m_output;
+    std::unordered_map<std::string, Variable> m_table;
+    // we will be using size_t
+    // size_t is size-safe for memory
+    // it is unsigned and is used to store the largest val possible
+    size_t m_stack_size;
+    // these two funcs will take care of the stack pointer dynamically
+    void push(std::string reg)
+    {
+        m_output << "   push " << reg << "\n";
+        m_stack_size++;
+    }
+    void pop(std::string reg)
+    {
+        m_output << "   pop " << reg << "\n";
+        m_stack_size--;
+    }
 
 public:
     Generator(NodePgm root) :
@@ -105,11 +125,28 @@ public:
                 // auto type = temp.value(); // -> Gives the token
                 // auto last = type.value.value(); // -> gives the final string
                 gen->m_output << "   mov rax, " << intlit.int_lit.value().value.value() << "\n";
-                gen->m_output << "   push rax\n";
+                gen->push("rax");
             }
             void operator()(const NodeExprIdent& exprident) const
             {
-
+                // check if the variable is present in the table
+                if(gen->m_table.find(exprident.ident.value().value.value()) == gen->m_table.end())
+                {
+                    std::cerr << "variable " << exprident.ident.value().value.value() << " not defined\n";
+                    exit(EXIT_FAILURE);
+                }
+                // here we are trying to access the stack_loc of this identifier for the offset
+                const auto& temp = gen->m_table.at(exprident.ident.value().value.value());
+                // stringstream to store all info 
+                std::stringstream offset;
+                // the actual offset (stack grows down in x86 64 and shrink down)
+                // QWORD is the operation size required when we are using offsets
+                // since our 
+                // Instead of: push QWORD [rsp + ...]
+                gen->m_output << "   mov rax, QWORD [rsp + " << (gen->m_stack_size-1 - temp.stack_loc)*8 << "]\n";
+                gen->push("rax");
+                // pushing the copied value so that I can now access that vars value
+                // gen->push(offset.str());
             }
         };
         // this, is an example of a designated intializer; allows for direct initialization, works only if this is an aggregate*
@@ -131,13 +168,26 @@ public:
                 // the var will be present in the tokens somewhere, we will simply have to map the var
                 // with the value, and then during exit we will need to find that val, push its copy on
                 // the top and pop THAT copy in order to have correct var precedence (idk if its optimal tho)
+
+                // using std::unordered_map::contains because we are only worried about the key
+                if (gen->m_table.find(variableDec.ident.value().value.value()) != gen->m_table.end())
+                {
+                    std::cerr<<"variable " << variableDec.ident.value().value.value() << " cannot be redeclared.\n";
+                    exit(EXIT_FAILURE);
+                }
+                else
+                {
+                    // this again, is the designated initializer syntax
+                    gen->m_table.insert({variableDec.ident.value().value.value(), Variable{.stack_loc = gen->m_stack_size}});
+                    gen->genExpr(variableDec.expr);
+                }
             }
             void operator()(const NodeStmtExit& stmtExit) const 
             {
                 // generate the exp before exiting
                 gen->genExpr(stmtExit.expr);
                 gen->m_output << "   mov rax, 60\n"; // syscall
-                gen->m_output << "   pop rdi, \n";
+                gen->pop("rdi");
                 gen->m_output << "   syscall\n"; 
             }
         };
